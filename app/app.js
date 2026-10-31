@@ -99,7 +99,11 @@ async function dl(a){
   var b=await r.blob(),url=URL.createObjectURL(b),l=document.createElement('a');l.href=url;l.download=a.name||'file';document.body.appendChild(l);l.click();l.remove();setTimeout(function(){URL.revokeObjectURL(url)},4000);
 }
 async function set(id,upd){var u={};u[id]=upd;var r=await api([['Email/set',{accountId:S.acc,update:u},'s']]);if(r.s.notUpdated&&r.s.notUpdated[id])throw new Error('Could not update message')}
-async function flag(m,k,v,quiet){var o={};o['keywords/'+k]=v?true:null;await set(m.id,o);m.keywords=m.keywords||{};if(v)m.keywords[k]=true;else delete m.keywords[k];if(!quiet){await loadBoxes();await loadList()}}
+async function flag(m,k,v,quiet){var o={};o['keywords/'+k]=v?true:null;m.keywords=m.keywords||{};var was=!!m.keywords[k];
+  // Optimistic: update locally first so the UI never waits on the server; roll back if the server refuses.
+  if(v)m.keywords[k]=true;else delete m.keywords[k];
+  try{await set(m.id,o)}catch(e){if(was)m.keywords[k]=true;else delete m.keywords[k];throw e}
+  if(!quiet){await loadBoxes();await loadList()}}
 async function move(m,to){var o={};o[to]=true;await set(m.id,{mailboxIds:o});return reset()}
 async function del(m,hard){
   var t=role('trash');
